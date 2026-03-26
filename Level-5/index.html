@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Level 5 Error Handling</title>
+</head>
+<body>
+
+<button id="fetchBtn">Fetch Data</button>
+<p id="status"></p>
+<div id="output"></div>
+
+<script>
+// ============================
+// CONFIG
+// ============================
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 sec
+const TIMEOUT = 3000; // 3 sec
+
+// ============================
+// TIMEOUT FETCH
+// ============================
+function fetchWithTimeout(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("Timeout"));
+    }, TIMEOUT);
+
+    fetch(url, options)
+      .then(res => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch(err => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+// ============================
+// DELAY FUNCTION
+// ============================
+function delay(ms) {
+  return new Promise(res => setTimeout(res, ms));
+}
+
+// ============================
+// MAIN FETCH WITH RETRY
+// ============================
+async function fetchData(url, retries = MAX_RETRIES) {
+
+  try {
+    document.getElementById("status").innerText = 
+      `Fetching... (Retries left: ${retries})`;
+
+    const res = await fetchWithTimeout(url);
+
+    // ============================
+    // HANDLE HTTP STATUS
+    // ============================
+    if (!res.ok) {
+
+      if (res.status === 404) {
+        throw new Error("404 Not Found");
+      }
+
+      if (res.status >= 500) {
+        throw new Error("Server Error (500)");
+      }
+
+      throw new Error("Other Error");
+    }
+
+    const data = await res.json();
+
+    document.getElementById("status").innerText = "Success";
+    renderData(data);
+
+  } catch (err) {
+
+    // ============================
+    // NETWORK ERROR
+    // ============================
+    if (err.message === "Failed to fetch") {
+      document.getElementById("status").innerText = "Network Error";
+    }
+
+    // ============================
+    // TIMEOUT ERROR
+    // ============================
+    else if (err.message === "Timeout") {
+      document.getElementById("status").innerText = "Request Timeout";
+    }
+
+    // ============================
+    // 404 ERROR
+    // ============================
+    else if (err.message.includes("404")) {
+      document.getElementById("status").innerText = "404 - Resource Not Found";
+    }
+
+    // ============================
+    // 500 ERROR
+    // ============================
+    else if (err.message.includes("500")) {
+      document.getElementById("status").innerText = "500 - Server Error";
+    }
+
+    else {
+      document.getElementById("status").innerText = "Unknown Error";
+    }
+
+    // ============================
+    // RETRY LOGIC
+    // ============================
+    if (retries > 0) {
+      console.log("Retrying...");
+      await delay(RETRY_DELAY);
+
+      return fetchData(url, retries - 1);
+    } else {
+      console.log("Max retries reached");
+    }
+  }
+}
+
+// ============================
+// RENDER FUNCTION
+// ============================
+function renderData(data) {
+  const output = document.getElementById("output");
+
+  if (!data || data.length === 0) {
+    output.innerHTML = "No Data";
+    return;
+  }
+
+  output.innerHTML = data.slice(0,5).map(item =>
+    `<p>${item.title || item.name}</p>`
+  ).join("");
+}
+
+// ============================
+// BUTTON CLICK
+// ============================
+document.getElementById("fetchBtn").addEventListener("click", () => {
+  fetchData("https://jsonplaceholder.typicode.com/posts");
+});
+</script>
+
+</body>
+</html>

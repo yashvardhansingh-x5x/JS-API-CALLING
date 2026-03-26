@@ -1,0 +1,137 @@
+
+
+
+
+
+<!-- User clicks →
+   ↓
+Check Memory Cache
+   ↓ (miss)
+Check localStorage
+   ↓ (miss)
+Call API
+   ↓
+Save to Memory + localStorage
+   ↓
+Render UI -->
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Level 4 API State Control</title>
+</head>
+<body>
+
+<button id="fetchBtn">Fetch Posts</button>
+<p id="status"></p>
+<div id="output"></div>
+
+<script>
+// ============================
+// CACHE SYSTEM
+// ============================
+
+// In-memory cache
+const memoryCache = {};
+
+// Cache expiry time (5 seconds for demo)
+const CACHE_EXPIRY = 5000;
+
+// ============================
+// FETCH FUNCTION WITH CACHE
+// ============================
+async function fetchData(url) {
+
+  const now = Date.now();
+
+  // ============================
+  // 1. CHECK MEMORY CACHE
+  // ============================
+  if (memoryCache[url]) {
+    const { data, timestamp } = memoryCache[url];
+
+    if (now - timestamp < CACHE_EXPIRY) {
+      console.log("Serving from MEMORY cache");
+      renderData(data);
+      return;
+    }
+  }
+
+  // ============================
+  // 2. CHECK LOCAL STORAGE
+  // ============================
+  const stored = localStorage.getItem(url);
+
+  if (stored) {
+    const parsed = JSON.parse(stored);
+
+    if (now - parsed.timestamp < CACHE_EXPIRY) {
+      console.log("Serving from LOCAL STORAGE");
+      renderData(parsed.data);
+
+      // also update memory cache
+      memoryCache[url] = parsed;
+      return;
+    }
+  }
+
+  // ============================
+  // 3. API CALL (ONLY IF NEEDED)
+  // ============================
+  try {
+    document.getElementById("status").innerText = "Fetching from API...";
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    document.getElementById("status").innerText = "Fetched from API";
+
+    renderData(data);
+
+    // ============================
+    // 4. STORE IN CACHE
+    // ============================
+    const cacheData = {
+      data,
+      timestamp: now
+    };
+
+    // Save in memory
+    memoryCache[url] = cacheData;
+
+    // Save in localStorage
+    localStorage.setItem(url, JSON.stringify(cacheData));
+
+  } catch (err) {
+    document.getElementById("status").innerText = "Error fetching data";
+  }
+}
+
+// ============================
+// RENDER FUNCTION
+// ============================
+function renderData(data) {
+  const output = document.getElementById("output");
+
+  if (!data || data.length === 0) {
+    output.innerHTML = "No Data";
+    return;
+  }
+
+  output.innerHTML = data.slice(0,5).map(item => 
+    `<p>${item.title}</p>`
+  ).join("");
+}
+
+// ============================
+// BUTTON CLICK
+// ============================
+document.getElementById("fetchBtn").addEventListener("click", () => {
+  fetchData("https://jsonplaceholder.typicode.com/posts");
+});
+</script>
+
+</body>
+</html>

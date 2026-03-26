@@ -1,0 +1,130 @@
+// ============================
+// STATE VARIABLES
+// ============================
+let data1 = null;
+let data2 = null;
+
+let loading1 = false;
+let loading2 = false;
+
+let error1 = null;
+let error2 = null;
+
+// ============================
+// UI RENDER FUNCTION
+// ============================
+function render() {
+  const root = document.getElementById("root");
+
+  root.innerHTML = `
+    <h2>Multiple API Handling</h2>
+
+    <button onclick="sequentialCall()">Sequential Call</button>
+    <button onclick="parallelCall()">Parallel Call</button>
+
+    <h3>API 1</h3>
+    ${loading1 ? "Loading API 1..." : ""}
+    ${error1 ? "Error API 1: " + error1 : ""}
+    ${data1 ? JSON.stringify(data1) : ""}
+
+    <h3>API 2</h3>
+    ${loading2 ? "Loading API 2..." : ""}
+    ${error2 ? "Error API 2: " + error2 : ""}
+    ${data2 ? JSON.stringify(data2) : ""}
+  `;
+}
+
+// ============================
+// API URLs
+// ============================
+const API1 = "https://jsonplaceholder.typicode.com/users";
+const API2 = "https://jsonplaceholder.typicode.com/posts";
+
+// ============================
+// 1️⃣ SEQUENTIAL API CALL
+// ============================
+async function sequentialCall() {
+  resetState();
+
+  try {
+    // API 1 start
+    loading1 = true;
+    render();
+
+    const res1 = await fetch(API1);
+    if (!res1.ok) throw new Error("API1 failed");
+
+    data1 = await res1.json();
+    loading1 = false;
+    render();
+
+    // API 2 start (AFTER API1 COMPLETE)
+    loading2 = true;
+    render();
+
+    const res2 = await fetch(API2);
+    if (!res2.ok) throw new Error("API2 failed");
+
+    data2 = await res2.json();
+    loading2 = false;
+  } catch (err) {
+    if (!data1) error1 = err.message;
+    else error2 = err.message;
+  }
+
+  render();
+}
+
+// ============================
+// 2️⃣ PARALLEL API CALL
+// ============================
+async function parallelCall() {
+  resetState();
+
+  loading1 = true;
+  loading2 = true;
+  render();
+
+  try {
+    const [res1, res2] = await Promise.allSettled([
+      fetch(API1),
+      fetch(API2),
+    ]);
+
+    // API 1
+    if (res1.status === "fulfilled" && res1.value.ok) {
+      data1 = await res1.value.json();
+    } else {
+      error1 = "API1 failed";
+    }
+
+    // API 2
+    if (res2.status === "fulfilled" && res2.value.ok) {
+      data2 = await res2.value.json();
+    } else {
+      error2 = "API2 failed";
+    }
+  } catch (err) {
+    console.log("Unexpected error:", err);
+  }
+
+  loading1 = false;
+  loading2 = false;
+
+  render();
+}
+
+// ============================
+// RESET STATE
+// ============================
+function resetState() {
+  data1 = null;
+  data2 = null;
+  error1 = null;
+  error2 = null;
+  loading1 = false;
+  loading2 = false;
+}
+
+// INITIAL RENDER
+render();

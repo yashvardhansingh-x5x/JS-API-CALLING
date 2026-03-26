@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Single API Control</title>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+    }
+    button {
+      padding: 10px 15px;
+      cursor: pointer;
+    }
+    .error {
+      color: red;
+    }
+    .loading {
+      color: blue;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Single API Control Example</h2>
+
+  <button id="fetchBtn">Fetch Data</button>
+
+  <div id="output"></div>
+
+  <script>
+    const API_URL = "https://jsonplaceholder.typicode.com/posts/1";
+
+    let apiData = null; // store API response
+
+    const output = document.getElementById("output");
+    const button = document.getElementById("fetchBtn");
+
+    // Render UI
+    function render({ loading, error, data }) {
+      if (loading) {
+        output.innerHTML = "<p class='loading'>Loading...</p>";
+        return;
+      }
+
+      if (error) {
+        output.innerHTML = `
+          <div class="error">
+            <p>Error: ${error}</p>
+            <p>Fallback UI shown</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (!data) {
+        output.innerHTML = "<p>No data available</p>";
+        return;
+      }
+
+      output.innerHTML = `
+        <h3>API Data:</h3>
+        <p><strong>ID:</strong> ${data.id}</p>
+        <p><strong>Title:</strong> ${data.title}</p>
+        <p><strong>Body:</strong> ${data.body}</p>
+      `;
+    }
+
+    // Fetch API
+    async function fetchData() {
+      render({ loading: true, error: null, data: null });
+
+      try {
+        const res = await fetch(API_URL);
+
+        if (!res.ok) {
+          throw new Error("API request failed");
+        }
+
+        const result = await res.json();
+
+        // Empty response handling
+        if (!result || Object.keys(result).length === 0) {
+          apiData = null;
+        } else {
+          apiData = result;
+        }
+
+        render({ loading: false, error: null, data: apiData });
+
+      } catch (err) {
+        render({ loading: false, error: err.message, data: null });
+      }
+    }
+
+    // Button click API call
+    button.addEventListener("click", fetchData);
+
+    // Page load API call
+    window.addEventListener("load", fetchData);
+  </script>
+
+</body>
+</html>

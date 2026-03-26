@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Level 7 Auth System</title>
+</head>
+<body>
+
+<button id="login">Login</button>
+<button id="fetch">Fetch Secure Data</button>
+<button id="logout">Logout</button>
+
+<p id="status"></p>
+<div id="output"></div>
+
+<script>
+// ============================
+// GLOBAL STATE
+// ============================
+let token = null;
+let controller = null;
+
+// ============================
+// LOGIN (SIMULATED)
+// ============================
+document.getElementById("login").addEventListener("click", () => {
+  token = "valid-token"; // fake token
+  localStorage.setItem("token", token);
+  document.getElementById("status").innerText = "Logged In";
+});
+
+// ============================
+// LOGOUT
+// ============================
+document.getElementById("logout").addEventListener("click", () => {
+  token = null;
+  localStorage.removeItem("token");
+
+  // Cancel pending API
+  if (controller) controller.abort();
+
+  document.getElementById("status").innerText = "Logged Out";
+  document.getElementById("output").innerHTML = "";
+});
+
+// ============================
+// GLOBAL FETCH WRAPPER
+// ============================
+async function apiFetch(url, options = {}) {
+
+  // attach token
+  const headers = {
+    ...options.headers,
+    "Authorization": `Bearer ${token}`
+  };
+
+  controller = new AbortController();
+
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal
+    });
+
+    // ============================
+    // HANDLE AUTH ERRORS
+    // ============================
+    if (res.status === 401) {
+      return handleAuthError(url, options);
+    }
+
+    if (!res.ok) {
+      throw new Error("API Error");
+    }
+
+    return res.json();
+
+  } catch (err) {
+    if (err.name === "AbortError") {
+      console.log("Request cancelled");
+    } else {
+      document.getElementById("status").innerText = "Error";
+    }
+  }
+}
+
+// ============================
+// HANDLE AUTH ERROR
+// ============================
+async function handleAuthError(url, options) {
+
+  document.getElementById("status").innerText = "Token Expired... Refreshing";
+
+  try {
+    // simulate refresh token
+    const newToken = await refreshToken();
+
+    token = newToken;
+    localStorage.setItem("token", token);
+
+    // retry original request
+    return apiFetch(url, options);
+
+  } catch (err) {
+    // if refresh fails → logout
+    logoutUser();
+  }
+}
+
+// ============================
+// REFRESH TOKEN (SIMULATED)
+// ============================
+function refreshToken() {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const success = true; // change to false to test failure
+
+      if (success) {
+        resolve("new-valid-token");
+      } else {
+        reject("Refresh Failed");
+      }
+    }, 1000);
+  });
+}
+
+// ============================
+// GLOBAL LOGOUT HANDLER
+// ============================
+function logoutUser() {
+  token = null;
+  localStorage.removeItem("token");
+
+  document.getElementById("status").innerText = "Session Expired. Logged Out";
+  document.getElementById("output").innerHTML = "";
+}
+
+// ============================
+// FETCH SECURE DATA
+// ============================
+document.getElementById("fetch").addEventListener("click", async () => {
+
+  const data = await apiFetch(
+    "https://jsonplaceholder.typicode.com/posts"
+  );
+
+  if (data) renderData(data);
+});
+
+// ============================
+// RENDER
+// ============================
+function renderData(data) {
+  const output = document.getElementById("output");
+
+  output.innerHTML = data.slice(0,5).map(item =>
+    `<p>${item.title}</p>`
+  ).join("");
+}
+
+// Load token from storage on refresh
+token = localStorage.getItem("token");
+</script>
+
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Level 6 Flow Control</title>
+</head>
+<body>
+
+<input type="text" id="search" placeholder="Search users..." />
+<button id="navigate">Simulate Navigation</button>
+
+<p id="status"></p>
+<div id="output"></div>
+
+<script>
+let currentRequestId = 0;  // track latest request
+let controller = null;    // abort controller
+let isComponentMounted = true; // simulate component lifecycle
+
+// ============================
+// FETCH WITH FLOW CONTROL
+// ============================
+async function fetchData(query) {
+
+  const requestId = ++currentRequestId;
+
+  // cancel previous request
+  if (controller) {
+    controller.abort();
+  }
+
+  controller = new AbortController();
+
+  try {
+    document.getElementById("status").innerText = "Loading...";
+
+    const res = await fetch(
+      `https://jsonplaceholder.typicode.com/users?name_like=${query}`,
+      { signal: controller.signal }
+    );
+
+    const data = await res.json();
+
+    // ============================
+    // IGNORE OLD RESPONSE
+    // ============================
+    if (requestId !== currentRequestId) {
+      console.log("Old response ignored");
+      return;
+    }
+
+    // ============================
+    // COMPONENT UNMOUNT CHECK
+    // ============================
+    if (!isComponentMounted) {
+      console.log("Component unmounted, ignore response");
+      return;
+    }
+
+    document.getElementById("status").innerText = "Success";
+    renderData(data);
+
+  } catch (err) {
+    if (err.name === "AbortError") {
+      console.log("Request cancelled");
+    } else {
+      document.getElementById("status").innerText = "Error";
+    }
+  }
+}
+
+// ============================
+// RENDER
+// ============================
+function renderData(data) {
+  const output = document.getElementById("output");
+
+  if (!data || data.length === 0) {
+    output.innerHTML = "No Results";
+    return;
+  }
+
+  output.innerHTML = data.map(user =>
+    `<p>${user.name}</p>`
+  ).join("");
+}
+
+// ============================
+// SEARCH INPUT
+// ============================
+document.getElementById("search").addEventListener("input", (e) => {
+  const query = e.target.value;
+
+  if (query.length < 2) return;
+
+  fetchData(query);
+});
+
+// ============================
+// NAVIGATION SIMULATION
+// ============================
+document.getElementById("navigate").addEventListener("click", () => {
+
+  console.log("Simulating navigation...");
+
+  // Cancel API
+  if (controller) {
+    controller.abort();
+  }
+
+  // Simulate component unmount
+  isComponentMounted = false;
+
+  document.getElementById("status").innerText = "Navigated Away";
+  document.getElementById("output").innerHTML = "";
+});
+</script>
+
+</body>
+</html>
