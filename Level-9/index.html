@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard System</title>
+</head>
+<body>
+
+<button id="refresh">Refresh Dashboard</button>
+
+<p id="globalLoading"></p>
+
+<h3>Users</h3>
+<div id="users"></div>
+
+<h3>Posts (Dependent on Users)</h3>
+<div id="posts"></div>
+
+<h3>Comments</h3>
+<div id="comments"></div>
+
+<script>
+// ============================
+// GLOBAL LOADING STATE
+// ============================
+let activeRequests = 0;
+
+function startLoading() {
+  activeRequests++;
+  document.getElementById("globalLoading").innerText = "Loading...";
+}
+
+function stopLoading() {
+  activeRequests--;
+  if (activeRequests === 0) {
+    document.getElementById("globalLoading").innerText = "";
+  }
+}
+
+// ============================
+// COMMON FETCH
+// ============================
+async function fetchAPI(url) {
+  startLoading();
+
+  try {
+    const res = await fetch(url);
+
+    if (!res.ok) throw new Error("API Error");
+
+    return await res.json();
+
+  } catch (err) {
+    console.log("Error:", url);
+    return null; // important for partial failure
+  } finally {
+    stopLoading();
+  }
+}
+
+// ============================
+// LOAD USERS
+// ============================
+async function loadUsers() {
+  const data = await fetchAPI("https://jsonplaceholder.typicode.com/users");
+
+  if (!data) {
+    document.getElementById("users").innerText = "Failed to load users";
+    return null;
+  }
+
+  document.getElementById("users").innerHTML =
+    data.slice(0,3).map(u => `<p>${u.name}</p>`).join("");
+
+  return data;
+}
+
+// ============================
+// LOAD POSTS (DEPENDENT)
+// ============================
+async function loadPosts(users) {
+
+  if (!users) {
+    document.getElementById("posts").innerText = "Users required";
+    return;
+  }
+
+  const userId = users[0].id;
+
+  const data = await fetchAPI(
+    `https://jsonplaceholder.typicode.com/posts?userId=${userId}`
+  );
+
+  if (!data) {
+    document.getElementById("posts").innerText = "Failed to load posts";
+    return;
+  }
+
+  document.getElementById("posts").innerHTML =
+    data.slice(0,3).map(p => `<p>${p.title}</p>`).join("");
+}
+
+// ============================
+// LOAD COMMENTS (INDEPENDENT)
+// ============================
+async function loadComments() {
+
+  const data = await fetchAPI("https://jsonplaceholder.typicode.com/comments");
+
+  if (!data) {
+    document.getElementById("comments").innerText = "Failed to load comments";
+    return;
+  }
+
+  document.getElementById("comments").innerHTML =
+    data.slice(0,3).map(c => `<p>${c.email}</p>`).join("");
+}
+
+// ============================
+// LOAD DASHBOARD
+// ============================
+async function loadDashboard() {
+
+  // parallel calls
+  const usersPromise = loadUsers();
+  const commentsPromise = loadComments();
+
+  const users = await usersPromise;
+
+  // dependent call
+  await loadPosts(users);
+
+  await commentsPromise;
+}
+
+// ============================
+// REFRESH BUTTON
+// ============================
+document.getElementById("refresh").addEventListener("click", () => {
+  loadDashboard();
+});
+
+// Initial load
+loadDashboard();
+</script>
+
+</body>
+</html>
